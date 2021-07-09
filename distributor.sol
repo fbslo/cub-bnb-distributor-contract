@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 contract Distributor {
     address public owner;
     mapping(address => uint256) public nonces;
+    mapping (address => uint256) public claimed;
     bool public allowContracts;
     
     event Claim(address user, uint256 amount);
@@ -25,6 +26,7 @@ contract Distributor {
         nonces[user] += 1;
         
         user.transfer(amount);
+        claimed[user] += amount;
 
         emit Claim(user, amount);
     }
