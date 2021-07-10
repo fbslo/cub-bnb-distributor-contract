@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-/// @title A simulator for trees
+/// @title BNB Distributor
 /// @author @fbslo (@fbsloXBT)
 /// @notice Contract to distribute BNB rewards.
 
@@ -31,6 +31,16 @@ contract Distributor {
         owner = msg.sender;
         signer = newSigner;
         allowContracts = false;
+    }
+    
+    /// @notice Fallback function used to receive BNB
+    fallback() external payable {
+        emit Deposit(msg.sender, msg.value);
+    }
+    
+    /// @notice Fallback function used to receive BNB
+    receive() external payable {
+        emit Deposit(msg.sender, msg.value);
     }
     
     /**
@@ -72,35 +82,56 @@ contract Distributor {
         signer = newSigner;
     }
     
+    /**
+     * @notice Get users nonce
+     * @param user Address of the user
+     */  
     function getNonce(address user) external view returns (uint256) {
         return nonces[user];
     }
     
+    /**
+     * @notice Get total amount user claimed
+     * @param user Address of the user
+     */  
     function getClaimed(address user) external view returns (uint256) {
         return claimed[user];
     }
-    
+  
+    /**
+     * @notice Get hash of the input data
+     * @param user Address of the user
+     */  
     function getMessageHash(address user, uint256 amount, uint256 nonce) public pure returns(bytes32) {
         return keccak256(abi.encodePacked(user, amount, nonce));   
     }
-    
+
+    /**
+     * @notice Get hash of the input hash and ethereum message prefix
+     * @param hash Hash of some data
+     */  
     function getEthereumMessageHash(bytes32 hash) public pure returns(bytes32) {
         return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
     }
-    
-    function recoverSigner(bytes32 hash, bytes memory _signature) internal pure returns (address) {
+  
+     /**
+     * @notice Recover signer address from signature
+     * @param hash Hash of some data
+     * @param signature Signature of impot hash
+     */   
+    function recoverSigner(bytes32 hash, bytes memory signature) internal pure returns (address) {
         bytes32 r;
         bytes32 s;
         uint8 v;
     
-        if (_signature.length != 65) {
+        if (signature.length != 65) {
             return (address(0));
         }
         
         assembly {
-            r := mload(add(_signature, 0x20))
-            s := mload(add(_signature, 0x40))
-            v := byte(0, mload(add(_signature, 0x60)))
+            r := mload(add(signature, 0x20))
+            s := mload(add(signature, 0x40))
+            v := byte(0, mload(add(signature, 0x60)))
         }
         
         if (v < 27) {
@@ -112,13 +143,5 @@ contract Distributor {
         } else {
             return ecrecover(hash, v, r, s);
         }
-    }
-    
-    fallback() external payable {
-        emit Deposit(msg.sender, msg.value);
-    }
-    
-    receive() external payable {
-        emit Deposit(msg.sender, msg.value);
     }
 }
