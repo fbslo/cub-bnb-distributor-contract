@@ -117,7 +117,7 @@ contract Distributor {
      /**
      * @notice Recover signer address from signature
      * @param hash Hash of some data
-     * @param signature Signature of impot hash
+     * @param signature Signature of this hash
      */   
     function recoverSigner(bytes32 hash, bytes memory signature) internal pure returns (address) {
         bytes32 r;
