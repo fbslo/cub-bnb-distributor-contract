@@ -1,45 +1,94 @@
-//SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.6;
+
+/// @title A simulator for trees
+/// @author @fbslo (@fbsloXBT)
+/// @notice Contract to distribute BNB rewards.
 
 contract Distributor {
+    /// @notice Owner address who can change settings
     address public owner;
-    mapping(address => uint256) public nonces;
-    mapping (address => uint256) public claimed;
+    /// @notice Signer address, used to sign messages off-chain
+    address public signer;
+    /// @notice true if contracts are allowed to interact, otherwise only EOAs can call it
     bool public allowContracts;
     
-    event Claim(address user, uint256 amount);
+    /// @notice Nonces for each user, used to prevent replay attacks
+    mapping(address => uint256) public nonces;
+    /// @notice Total amount claimed by user
+    mapping (address => uint256) public claimed;
     
-    constructor(){
+    /// @notice An event thats emitted when user claims rewards
+    event Claim(address indexed user, uint256 amount);
+    /// @notice An event thats emitted when BNB rewards are deposited
+    event Deposit(address indexed sender, uint256 amount);
+    
+    /**
+     * @notice Construct a new Distributor contract
+     * @param newSigner The address with signers rights
+     */
+    constructor(address newSigner){
         owner = msg.sender;
+        signer = newSigner;
         allowContracts = false;
     }
     
-    
-    function claim(address payable user, uint256 amount, bytes memory signature, uint256 nonce) external {
-        bytes32 hash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(abi.encodePacked(nonce, user, amount))));
-        address signer = recoverSigner(hash, signature);
+    /**
+     * @notice Claim BNB rewards using signature generate off-chain
+     * @param user Address of the user
+     * @param amount BNB amount that user wants to claim
+     * @param nonce Number only used once 
+     * @param signature Signature signed by signer
+     */   
+    function claim(address payable user, uint256 amount, uint256 nonce, bytes memory signature) external {
+        bytes32 hash = getEthereumMessageHash(getMessageHash(user, amount, nonce));
+        address signedBy = recoverSigner(hash, signature);
         
-        require(signer == owner, 'Signer is not owner');
+        require(signedBy == signer, 'Not signed by signer');
         require(nonces[user] == nonce, 'Nonce does not match');
         if (!allowContracts) require(msg.sender == tx.origin, 'No smart contracts allowed');
         
         nonces[user] += 1;
+        claimed[user] += amount;
         
         user.transfer(amount);
-        claimed[user] += amount;
 
         emit Claim(user, amount);
     }
     
-    function settings(address _owner, bool _allowContracts) external {
+    /**
+     * @notice Change settings
+     * @param newOwner Address of the new owner
+     * @param newSigner Address of the new signer
+     * @param newAllowContracts Boolean, true if contracts are allowed
+     */   
+    function settings(address newOwner, address newSigner, bool newAllowContracts) external {
         require(msg.sender == owner, '!owner');
-        require(owner != address(0), "Owner != 0x0");
+        require(newOwner != address(0), "Owner != 0x0");
+        require(newSigner != address(0), "Signer != 0x0");
         
-        owner = _owner;
-        allowContracts = _allowContracts;
+        owner = newOwner;
+        allowContracts = newAllowContracts;
+        signer = newSigner;
     }
     
-    function recoverSigner(bytes32 hash, bytes memory _signature) internal pure returns (address){
+    function getNonce(address user) external view returns (uint256) {
+        return nonces[user];
+    }
+    
+    function getClaimed(address user) external view returns (uint256) {
+        return claimed[user];
+    }
+    
+    function getMessageHash(address user, uint256 amount, uint256 nonce) public pure returns(bytes32) {
+        return keccak256(abi.encodePacked(user, amount, nonce));   
+    }
+    
+    function getEthereumMessageHash(bytes32 hash) public pure returns(bytes32) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
+    }
+    
+    function recoverSigner(bytes32 hash, bytes memory _signature) internal pure returns (address) {
         bytes32 r;
         bytes32 s;
         uint8 v;
@@ -63,5 +112,13 @@ contract Distributor {
         } else {
             return ecrecover(hash, v, r, s);
         }
+    }
+    
+    fallback() external payable {
+        emit Deposit(msg.sender, msg.value);
+    }
+    
+    receive() external payable {
+        emit Deposit(msg.sender, msg.value);
     }
 }
