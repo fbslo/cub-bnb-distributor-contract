@@ -114,7 +114,7 @@ contract Distributor {
         return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
     }
   
-     /**
+    /**
      * @notice Recover signer address from signature
      * @param hash Hash of some data
      * @param signature Signature of this hash
