@@ -120,7 +120,15 @@ contract Distributor {
         (bool success,) = target.call{value:value}(callData);
         require(success, "Transaction execution reverted.");
     }
-    
+
+    /**
+     * @notice Swap tokens to BNB
+     * @param tokenAddress Address of the token we want to sell
+     * @param router Address of the exchange router contract
+     * @param amountIn Amount to sell
+     * @param amountOutMin Minimum received amount
+     * @param path Path to swap tokens through
+     */  
     function swap(address tokenAddress, address router, uint amountIn, uint256 amountOutMin, address[] memory path) external {
         require(isAdmin[msg.sender], '!admin');
         require(isRouter[router], 'Not router');
